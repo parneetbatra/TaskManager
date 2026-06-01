@@ -1,0 +1,87 @@
+# Root .gitignore for TaskManager repo
+
+# Visual Studio / .NET
+.vs/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.ilk
+*.log
+*.obj
+*.pch
+*.pdb
+*.exe
+*.dll
+*.app
+*.appx
+*.wrn
+*.vsix
+
+# Build directories
+**/bin/
+**/obj/
+
+# Rider / IntelliJ
+.idea/
+*.sln.iml
+
+# ASP.NET temporary files
+~$*
+*.dbmdl
+
+# Windows image file caches
+Thumbs.db
+Desktop.ini
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Angular / frontend
+frontend/dist/
+frontend/.angular/
+frontend/.cache/
+frontend/tmp
+frontend/out-tsc
+frontend/bazel-out
+frontend/.sass-cache/
+frontend/connect.lock
+frontend/coverage
+frontend/libpeerconnection.log
+frontend/testem.log
+frontend/typings
+frontend/__screenshots__/
+frontend/npm-debug.log*
+
+# npm package lock
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# User-specific files
+*.env
+*.env.local
+*.env.*.local
+
+# Generated logs
+*.log
+
+# TaskManager specific
+backend/TaskManager/TaskManager.http
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+frontend/.vscode/*
+!frontend/.vscode/settings.json
+!frontend/.vscode/tasks.json
+!frontend/.vscode/launch.json
+!frontend/.vscode/extensions.json
+!frontend/.vscode/mcp.json
