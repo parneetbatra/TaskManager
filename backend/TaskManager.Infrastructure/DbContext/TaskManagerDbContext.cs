@@ -22,6 +22,11 @@ namespace TaskManager.Infrastructure.DbContext
                 builder.ToTable("Tasks");
                 builder.HasKey(t => t.Id);
 
+                builder.HasIndex(t => t.Title)
+                    .IsUnique();
+
+                builder.HasIndex(t => t.Status);
+
                 builder.Property(t => t.Title)
                     .IsRequired()
                     .HasMaxLength(200);

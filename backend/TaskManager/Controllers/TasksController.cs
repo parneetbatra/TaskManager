@@ -6,7 +6,8 @@ using TaskManager.Application.Services;
 namespace TaskManager.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [ApiVersion("1.0")]
+    [Route("api/v{version:apiVersion}/[controller]")]
     public sealed class TasksController : ControllerBase
     {
         private readonly ITaskService _service;
@@ -21,6 +22,7 @@ namespace TaskManager.Controllers
         [HttpGet]
         public async Task<IActionResult> Get([FromQuery] string status = "all")
         {
+            _logger.LogInformation("Listing tasks with filter '{StatusFilter}'", status);
             var tasks = await _service.GetTasksAsync(status);
             return Ok(tasks);
         }
@@ -28,6 +30,7 @@ namespace TaskManager.Controllers
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> Get(Guid id)
         {
+            _logger.LogInformation("Retrieving task {TaskId}.", id);
             var task = await _service.GetByIdAsync(id);
             return Ok(task);
         }
@@ -37,10 +40,12 @@ namespace TaskManager.Controllers
         {
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Create task request failed validation.");
                 return ValidationProblem(ModelState);
             }
 
             var created = await _service.CreateAsync(request);
+            _logger.LogInformation("Created task {TaskId}.", created.Id);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
@@ -49,10 +54,12 @@ namespace TaskManager.Controllers
         {
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Update task {TaskId} request failed validation.", id);
                 return ValidationProblem(ModelState);
             }
 
             var updated = await _service.UpdateAsync(id, request);
+            _logger.LogInformation("Updated task {TaskId}.", id);
             return Ok(updated);
         }
 
@@ -60,6 +67,7 @@ namespace TaskManager.Controllers
         public async Task<IActionResult> Delete(Guid id)
         {
             await _service.DeleteAsync(id);
+            _logger.LogInformation("Deleted task {TaskId}.", id);
             return NoContent();
         }
     }
