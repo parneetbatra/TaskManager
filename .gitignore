@@ -21,6 +21,7 @@
 # Build directories
 **/bin/
 **/obj/
+backend/TempBuild/
 
 # Rider / IntelliJ
 .idea/
