@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using TaskManager.Application.Interfaces;
 using TaskManager.Application.Services;
+using TaskManager.Extensions;
 using TaskManager.Infrastructure.DbContext;
 using TaskManager.Infrastructure.Repositories;
 using TaskManager.Middleware;
@@ -55,12 +56,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.AssumeDefaultVersionWhenUnspecified = false;
     options.ReportApiVersions = true;
-    options.ApiVersionReader = ApiVersionReader.Combine(
-        new QueryStringApiVersionReader("api-version"),
-        new HeaderApiVersionReader("x-api-version"),
-        new UrlSegmentApiVersionReader());
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
 });
 
 builder.Services.AddVersionedApiExplorer(options =>
@@ -75,11 +73,7 @@ builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwa
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<TaskManagerDbContext>();
-    db.Database.EnsureCreated();
-}
+await app.ApplyDatabaseMigrationsAsync();
 
 // Configure the HTTP request pipeline.
 app.UseExceptionHandling();
