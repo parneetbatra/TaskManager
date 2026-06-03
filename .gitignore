@@ -22,6 +22,7 @@
 **/bin/
 **/obj/
 backend/TempBuild/
+backend/TempTest/
 
 # Rider / IntelliJ
 .idea/
