@@ -18,23 +18,32 @@ namespace TaskManager.Application.Services
             _logger = logger;
         }
 
-        public async Task<IEnumerable<TaskResponse>> GetTasksAsync(string statusFilter)
+        public async Task<PagedResult<TaskResponse>> GetTasksAsync(string statusFilter, int page, int pageSize)
         {
-            _logger.LogInformation("Listing tasks with status filter '{StatusFilter}'.", statusFilter);
+            _logger.LogInformation("Listing tasks with status filter '{StatusFilter}', page {Page}, size {PageSize}.", statusFilter, page, pageSize);
 
-            var tasks = await _repository.GetAllAsync();
             var filter = (statusFilter ?? string.Empty).Trim();
-            if (string.Equals(filter, "all", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(filter))
+            TaskStatus? status = null;
+
+            if (!string.Equals(filter, "all", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(filter))
             {
-                return tasks.Select(ToResponse);
+                if (!Enum.TryParse<TaskStatus>(filter, ignoreCase: true, out var parsed))
+                {
+                    throw new ValidationException($"Unknown status filter '{filter}'. Allowed values are: all, {string.Join(", ", Enum.GetNames<TaskStatus>())}.");
+                }
+
+                status = parsed;
             }
 
-            if (Enum.TryParse<TaskStatus>(filter, ignoreCase: true, out var status))
+            var pagedResult = await _repository.GetPagedAsync(status, page, pageSize);
+            return new PagedResult<TaskResponse>
             {
-                return tasks.Where(t => t.Status == status).Select(ToResponse);
-            }
-
-            throw new ValidationException($"Unknown status filter '{filter}'. Allowed values are: all, {string.Join(", ", Enum.GetNames<TaskStatus>())}.");
+                Page = pagedResult.Page,
+                PageSize = pagedResult.PageSize,
+                TotalCount = pagedResult.TotalCount,
+                TotalPages = pagedResult.TotalPages,
+                Items = pagedResult.Items.Select(ToResponse).ToList()
+            };
         }
 
         public async Task<TaskResponse> GetByIdAsync(Guid id)

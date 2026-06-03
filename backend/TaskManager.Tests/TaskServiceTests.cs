@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using TaskManager.Application.Dtos.Requests;
+using TaskManager.Application.Dtos.Responses;
 using TaskManager.Application.Interfaces;
 using TaskManager.Application.Services;
 using TaskManager.Domain.Entities;
@@ -17,7 +18,7 @@ namespace TaskManager.Tests
             var taskB = CreateTask(title: "Task B", status: TaskStatus.Completed);
             var service = CreateService(taskA, taskB);
 
-            var result = (await service.GetTasksAsync("all")).ToList();
+            var result = (await service.GetTasksAsync("all", 1, 20)).Items.ToList();
 
             Assert.Equal(2, result.Count);
             Assert.Contains(result, task => task.Title == "Task A");
@@ -33,7 +34,7 @@ namespace TaskManager.Tests
                 CreateTask(title: "Task A", status: TaskStatus.Active),
                 CreateTask(title: "Task B", status: TaskStatus.Completed));
 
-            var result = (await service.GetTasksAsync(filter)).ToList();
+            var result = (await service.GetTasksAsync(filter, 1, 20)).Items.ToList();
 
             Assert.Equal(2, result.Count);
         }
@@ -45,7 +46,7 @@ namespace TaskManager.Tests
                 CreateTask(title: "Active Task", status: TaskStatus.Active),
                 CreateTask(title: "Completed Task", status: TaskStatus.Completed));
 
-            var result = (await service.GetTasksAsync("completed")).ToList();
+            var result = (await service.GetTasksAsync("completed", 1, 20)).Items.ToList();
 
             var item = Assert.Single(result);
             Assert.Equal("Completed Task", item.Title);
@@ -57,7 +58,7 @@ namespace TaskManager.Tests
         {
             var service = CreateService();
 
-            var action = () => service.GetTasksAsync("invalid-status");
+            var action = () => service.GetTasksAsync("invalid-status", 1, 20);
 
             var exception = await Assert.ThrowsAsync<ValidationException>(action);
             Assert.Contains("Unknown status filter", exception.Message);
@@ -291,6 +292,42 @@ namespace TaskManager.Tests
 
             public Task<IEnumerable<TaskItem>> GetAllAsync()
                 => Task.FromResult<IEnumerable<TaskItem>>(Tasks.Select(Clone).ToList());
+
+            public Task<PagedResult<TaskItem>> GetPagedAsync(TaskStatus? statusFilter, int page, int pageSize)
+            {
+                if (page < 1)
+                {
+                    page = 1;
+                }
+
+                var query = Tasks.AsQueryable();
+                if (statusFilter.HasValue)
+                {
+                    query = query.Where(task => task.Status == statusFilter.Value);
+                }
+
+                var totalCount = query.Count();
+                var items = query
+                    .OrderByDescending(task => task.UpdatedAt)
+                    .ThenByDescending(task => task.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(Clone)
+                    .ToList();
+
+                var totalPages = totalCount == 0
+                    ? 1
+                    : (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                return Task.FromResult(new PagedResult<TaskItem>
+                {
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    Items = items
+                });
+            }
 
             public Task<TaskItem?> GetByIdAsync(Guid id)
             {

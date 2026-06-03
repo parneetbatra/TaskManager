@@ -5,7 +5,7 @@ namespace TaskManager.Application.Services
 {
     public interface ITaskService
     {
-        Task<IEnumerable<TaskResponse>> GetTasksAsync(string statusFilter);
+        Task<PagedResult<TaskResponse>> GetTasksAsync(string statusFilter, int page, int pageSize);
         Task<TaskResponse> GetByIdAsync(Guid id);
         Task<TaskResponse> CreateAsync(CreateTaskRequest request);
         Task<TaskResponse> UpdateAsync(Guid id, UpdateTaskRequest request);
