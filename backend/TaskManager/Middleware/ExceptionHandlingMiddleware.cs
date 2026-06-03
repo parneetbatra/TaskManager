@@ -33,6 +33,7 @@ namespace TaskManager.Middleware
             var statusCode = exception switch
             {
                 EntityNotFoundException => StatusCodes.Status404NotFound,
+                ValidationException => StatusCodes.Status400BadRequest,
                 ArgumentException => StatusCodes.Status400BadRequest,
                 _ => StatusCodes.Status500InternalServerError
             };
@@ -40,6 +41,10 @@ namespace TaskManager.Middleware
             if (statusCode == StatusCodes.Status500InternalServerError)
             {
                 _logger.LogError(exception, "An unhandled exception occurred while processing the request.");
+            }
+            else
+            {
+                _logger.LogWarning(exception, "A handled exception occurred while processing the request.");
             }
 
             var problemDetails = new ProblemDetails

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TaskManager.Application.Dtos.Requests;
 using TaskManager.Application.Dtos.Responses;
 using TaskManager.Application.Interfaces;
@@ -9,14 +10,18 @@ namespace TaskManager.Application.Services
     public sealed class TaskService : ITaskService
     {
         private readonly ITaskRepository _repository;
+        private readonly ILogger<TaskService> _logger;
 
-        public TaskService(ITaskRepository repository)
+        public TaskService(ITaskRepository repository, ILogger<TaskService> logger)
         {
             _repository = repository;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<TaskResponse>> GetTasksAsync(string statusFilter)
         {
+            _logger.LogInformation("Listing tasks with status filter '{StatusFilter}'.", statusFilter);
+
             var tasks = await _repository.GetAllAsync();
             var filter = (statusFilter ?? string.Empty).Trim();
             if (string.Equals(filter, "all", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(filter))
@@ -29,7 +34,7 @@ namespace TaskManager.Application.Services
                 return tasks.Where(t => t.Status == status).Select(ToResponse);
             }
 
-            return tasks.Select(ToResponse);
+            throw new ValidationException($"Unknown status filter '{filter}'. Allowed values are: all, {string.Join(", ", Enum.GetNames<TaskStatus>())}.");
         }
 
         public async Task<TaskResponse> GetByIdAsync(Guid id)
@@ -45,11 +50,23 @@ namespace TaskManager.Application.Services
 
         public async Task<TaskResponse> CreateAsync(CreateTaskRequest request)
         {
+            var title = request.Title.Trim();
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                throw new ValidationException("Task title is required.");
+            }
+
+            var existingTasks = await _repository.GetAllAsync();
+            if (existingTasks.Any(t => string.Equals(t.Title, title, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ValidationException("A task with the same title already exists.");
+            }
+
             var now = DateTime.UtcNow;
             var task = new Domain.Entities.TaskItem
             {
                 Id = Guid.NewGuid(),
-                Title = request.Title.Trim(),
+                Title = title,
                 Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
                 Status = TaskStatus.Active,
                 CreatedAt = now,
@@ -57,6 +74,7 @@ namespace TaskManager.Application.Services
             };
 
             var created = await _repository.CreateAsync(task);
+            _logger.LogInformation("Created task {TaskId} with title '{Title}'.", created.Id, created.Title);
             return ToResponse(created);
         }
 
@@ -68,7 +86,24 @@ namespace TaskManager.Application.Services
                 throw new EntityNotFoundException(id);
             }
 
-            existing.Title = request.Title.Trim();
+            var title = request.Title.Trim();
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                throw new ValidationException("Task title is required.");
+            }
+
+            var existingTasks = await _repository.GetAllAsync();
+            if (existingTasks.Any(t => t.Id != id && string.Equals(t.Title, title, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ValidationException("A task with the same title already exists.");
+            }
+
+            if (existing.Status == TaskStatus.Cancelled && request.Status != TaskStatus.Cancelled)
+            {
+                throw new ValidationException("Cancelled tasks cannot be reopened or modified.");
+            }
+
+            existing.Title = title;
             existing.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
             existing.Status = request.Status;
             existing.UpdatedAt = DateTime.UtcNow;
@@ -79,6 +114,7 @@ namespace TaskManager.Application.Services
                 throw new EntityNotFoundException(id);
             }
 
+            _logger.LogInformation("Updated task {TaskId} to status {Status}.", existing.Id, existing.Status);
             return ToResponse(existing);
         }
 
@@ -89,6 +125,8 @@ namespace TaskManager.Application.Services
             {
                 throw new EntityNotFoundException(id);
             }
+
+            _logger.LogInformation("Deleted task {TaskId}.", id);
         }
 
         private static TaskResponse ToResponse(Domain.Entities.TaskItem entity)
