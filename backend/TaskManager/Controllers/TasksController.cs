@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using TaskManager.Application.Dtos.Requests;
 using TaskManager.Application.Dtos.Responses;
@@ -20,10 +21,13 @@ namespace TaskManager.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] string status = "all")
+        public async Task<IActionResult> Get(
+            [FromQuery] string status = "all",
+            [FromQuery, Range(1, int.MaxValue)] int page = 1,
+            [FromQuery, Range(1, 100)] int pageSize = 10)
         {
-            _logger.LogInformation("Listing tasks with filter '{StatusFilter}'", status);
-            var tasks = await _service.GetTasksAsync(status);
+            _logger.LogInformation("Listing tasks with filter '{StatusFilter}', page {Page}, page size {PageSize}.", status, page, pageSize);
+            var tasks = await _service.GetTasksAsync(status, page, pageSize);
             return Ok(tasks);
         }
 

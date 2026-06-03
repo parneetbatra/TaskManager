@@ -1,0 +1,200 @@
+<main class="shell">
+	<section class="hero-panel">
+		<div class="hero-copy">
+			<p class="eyebrow">Angular task management</p>
+			<h1>{{ title }}</h1>
+			<p class="subtitle">{{ subtitle }}</p>
+		</div>
+
+		<div class="stat-grid">
+			<article class="stat-card">
+				<span class="stat-label">Visible tasks</span>
+				<strong class="stat-value">{{ taskCount() }}</strong>
+			</article>
+			<article class="stat-card stat-card--warm">
+				<span class="stat-label">In motion</span>
+				<strong class="stat-value">{{ activeCount() }}</strong>
+			</article>
+			<article class="stat-card stat-card--dark">
+				<span class="stat-label">Done rate</span>
+				<strong class="stat-value">{{ completionRate() }}%</strong>
+			</article>
+		</div>
+	</section>
+
+	@if (errorMessage(); as error) {
+		<section class="banner banner--error">{{ error }}</section>
+	}
+
+	@if (successMessage(); as success) {
+		<section class="banner banner--success">{{ success }}</section>
+	}
+
+	<section class="workspace">
+		<aside class="composer-card">
+			<div class="section-heading">
+				<p class="section-kicker">New task</p>
+				<h2>Capture the next move</h2>
+			</div>
+
+			<form class="stack" [formGroup]="createForm" (ngSubmit)="createTask()">
+				<label class="field">
+					<span>Title</span>
+					<input type="text" formControlName="title" maxlength="200" placeholder="Ship task board" />
+				</label>
+
+				<label class="field">
+					<span>Description</span>
+					<textarea formControlName="description" rows="5" maxlength="1000" placeholder="What needs to happen, and why?"></textarea>
+				</label>
+
+				<button class="primary-button" type="submit" [disabled]="saving()">
+					{{ saving() ? 'Saving...' : 'Add task' }}
+				</button>
+			</form>
+		</aside>
+
+		<section class="board-card">
+			<div class="board-header">
+				<div>
+					<p class="section-kicker">Task board</p>
+					<h2>Execution radar</h2>
+				</div>
+
+				<button class="ghost-button" type="button" (click)="reloadTasks()" [disabled]="loading()">
+					{{ loading() ? 'Refreshing...' : 'Refresh' }}
+				</button>
+			</div>
+
+			<div class="filter-row" role="tablist" aria-label="Task filters">
+				@for (filter of filters; track filter.value) {
+					<button
+						type="button"
+						class="filter-chip"
+						[class.filter-chip--active]="activeFilter() === filter.value"
+						(click)="setFilter(filter.value)">
+						{{ filter.label }}
+					</button>
+				}
+			</div>
+
+			@if (tasks().length > 0) {
+				<div class="pagination-strip">
+					<div class="pager-controls">
+						<button type="button" class="ghost-button" (click)="goToPreviousPage()" [disabled]="currentPage() === 1 || loading()">
+							Previous
+						</button>
+						<span class="pager-summary">Page {{ currentPage() }} of {{ totalPages() }}</span>
+						<button type="button" class="ghost-button" (click)="goToNextPage()" [disabled]="currentPage() === totalPages() || loading()">
+							Next
+						</button>
+					</div>
+
+					<div class="page-size-controls">
+						<label>
+							<span>Page size</span>
+							<select [value]="pageSize()" (change)="setPageSize($any($event.target).value)">
+								@for (size of pageSizeOptions; track size) {
+									<option [value]="size">{{ size }}</option>
+								}
+							</select>
+						</label>
+						<span class="page-total">Showing {{ taskCount() }} of {{ totalTasks() }} tasks</span>
+					</div>
+				</div>
+			}
+
+			@if (loading()) {
+				<div class="empty-state">
+					<h3>Loading tasks...</h3>
+					<p>Pulling the latest state from the API.</p>
+				</div>
+			} @else if (tasks().length === 0) {
+				<div class="empty-state">
+					<h3>{{ emptyStateTitle() }}</h3>
+					<p>Create a task or switch filters to inspect another lane.</p>
+				</div>
+			} @else {
+				<div class="task-list">
+					@for (task of tasks(); track trackTask($index, task)) {
+						<article class="task-card" [class.task-card--selected]="selectedTaskId() === task.id">
+							<div class="task-card__meta">
+								<span class="status-pill" [ngClass]="statusTone(task.status)">{{ statusLabel(task.status) }}</span>
+								<span class="timestamp">Updated {{ task.updatedAt | date: 'MMM d, y, h:mm a' }}</span>
+							</div>
+
+							<div class="task-card__body">
+								<h3>{{ task.title }}</h3>
+								<p>{{ task.description || 'No description yet.' }}</p>
+							</div>
+
+							<div class="task-card__actions">
+								<button class="ghost-button" type="button" (click)="startEditing(task)">Edit</button>
+								<button
+									class="danger-button"
+									type="button"
+									[disabled]="deletingTaskId() === task.id"
+									(click)="deleteTask(task)">
+									{{ deletingTaskId() === task.id ? 'Deleting...' : 'Delete' }}
+								</button>
+							</div>
+						</article>
+					}
+				</div>
+			}
+		</section>
+
+		<aside class="editor-card">
+			<div class="section-heading">
+				<p class="section-kicker">Selected task</p>
+				<h2>Adjust state</h2>
+			</div>
+
+			@if (selectedTask(); as task) {
+				<form class="stack" [formGroup]="editForm" (ngSubmit)="saveTask()">
+					<label class="field">
+						<span>Title</span>
+						<input type="text" formControlName="title" maxlength="200" />
+					</label>
+
+					<label class="field">
+						<span>Description</span>
+						<textarea formControlName="description" rows="5" maxlength="1000"></textarea>
+					</label>
+
+					<label class="field">
+						<span>Status</span>
+						<select formControlName="status">
+							@for (option of statusOptions; track option.value) {
+								<option [ngValue]="option.value">{{ option.label }}</option>
+							}
+						</select>
+					</label>
+
+					<div class="detail-strip">
+						<div>
+							<span class="detail-label">Created</span>
+							<strong>{{ task.createdAt | date: 'MMM d, y' }}</strong>
+						</div>
+						<div>
+							<span class="detail-label">Last update</span>
+							<strong>{{ task.updatedAt | date: 'MMM d, y, h:mm a' }}</strong>
+						</div>
+					</div>
+
+					<div class="editor-actions">
+						<button class="ghost-button" type="button" (click)="cancelEditing()">Close</button>
+						<button class="primary-button" type="submit" [disabled]="saving()">
+							{{ saving() ? 'Saving...' : 'Save changes' }}
+						</button>
+					</div>
+				</form>
+			} @else {
+				<div class="empty-state empty-state--compact">
+					<h3>No task selected</h3>
+					<p>Pick a card from the board to update its title, notes, or status.</p>
+				</div>
+			}
+		</aside>
+	</section>
+</main>

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using TaskManager.Application.Dtos.Responses;
 using TaskManager.Application.Interfaces;
 using TaskManager.Domain.Entities;
 using TaskManager.Infrastructure.DbContext;
+using TaskStatus = TaskManager.Domain.Enums.TaskStatus;
 
 namespace TaskManager.Infrastructure.Repositories
 {
@@ -16,6 +18,36 @@ namespace TaskManager.Infrastructure.Repositories
 
         public async Task<IEnumerable<TaskItem>> GetAllAsync()
             => await _dbContext.Tasks.AsNoTracking().ToListAsync();
+
+        public async Task<PagedResult<TaskItem>> GetPagedAsync(TaskStatus? statusFilter, int page, int pageSize)
+        {
+            var query = _dbContext.Tasks.AsNoTracking().AsQueryable();
+            if (statusFilter.HasValue)
+            {
+                query = query.Where(task => task.Status == statusFilter.Value);
+            }
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(task => task.UpdatedAt)
+                .ThenByDescending(task => task.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var totalPages = totalCount == 0
+                ? 1
+                : (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            return new PagedResult<TaskItem>
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                Items = items
+            };
+        }
 
         public async Task<TaskItem?> GetByIdAsync(Guid id)
             => await _dbContext.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
